@@ -1,0 +1,98 @@
+service: sustaintrain-${opt:modelName, 'default'}
+
+custom:
+  serviceName: sustaintrain-${opt:modelName, 'default'}
+  stageFile: ./${self:provider.stage}.json
+  modelConfigFile: models/${self:custom.modelPath}/config.json
+  opensearchDomain: ${file(${self:custom.stageFile}):opensearchDomain}
+  opensearchDomainArn: ${file(${self:custom.stageFile}):opensearchDomainArn}
+  stateMachineArn: 
+    Ref: StateMachine
+  trainingFunctionArn: ${file(${self:custom.modelConfigFile}):trainingFunctionArn}
+  aggregateSelector: ${file(${self:custom.modelConfigFile}):aggregateSelector}
+  sharedLibsArn: ${file(${self:custom.stageFile}):sharedLibsArn}
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: dev
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - states:StartExecution
+      Resource: 
+        - ${self:custom.stateMachineArn}
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource:
+        - ${self:custom.trainingFunctionArn}
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:custom.serviceName}-${self:provider.stage}-invoke"
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:custom.serviceName}-${self:provider.stage}-sink"
+        - Fn::Sub: "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${self:custom.serviceName}-${self:provider.stage}-process"
+    - Effect: Allow
+      Action:
+        - es:ESHttpPost
+        - es:ESHttpPut
+      Resource:
+        - ${self:custom.opensearchDomainArn}
+
+functions:
+  invoke:
+    handler: utils/invoke.handler
+    layers:
+      - ${self:custom.sharedLibsArn}
+    package:
+      include:
+        - utils/invoke.py
+    environment:
+      TRAINING_FUNCTION_ARN: ${self:custom.trainingFunctionArn}
+  sink:
+    handler: utils/sink.handler
+    layers:
+      - ${self:custom.sharedLibsArn}
+    package:
+      include:
+        - utils/sink.py
+    environment:
+      OPENSEARCH_DOMAIN: ${self:custom.opensearchDomain}
+  process:
+    handler: utils/process.handler
+    layers:
+      - ${self:custom.sharedLibsArn}
+    events:
+      - eventBridge:
+          eventBus: ${self:custom.serviceName}-${self:provider.stage}-test
+          pattern:
+            source:
+              - '*'
+    package:
+      include:
+        - utils/process.py
+    environment:
+      STATE_MACHINE_ARN: ${self:custom.stateMachineArn}
+      AGGREGATE_SELECTOR: ${self:custom.aggregateSelector}
+
+stepFunctions:
+  stateMachines:
+    stateMachine:
+      definition:
+        StartAt: SinkState
+        States:
+          SinkState:
+            Type: Task
+            Resource: 
+              Fn::GetAtt: [sink, Arn]
+            Next: InvokeState
+          InvokeState:
+            Type: Task
+            Resource: 
+              Fn::GetAtt: [invoke, Arn]
+            End: true
+
+resources:
+  Resources:
+    TestingEventBus:
+      Type: 'AWS::Events::EventBus'
+      Properties:
+        Name: ${self:custom.serviceName}-${self:provider.stage}-test

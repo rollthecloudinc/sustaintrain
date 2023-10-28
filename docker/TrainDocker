@@ -1,0 +1,27 @@
+# Use the AWS base image for Python 3.8
+FROM public.ecr.aws/lambda/python:3.8
+
+# Set the working directory to /var/task
+WORKDIR /var/task
+
+# Copy the current directory contents into the container
+COPY . .
+
+# Install system packages
+RUN yum update -y && \
+    yum install -y gcc-c++ 
+
+# Install any needed packages specified in requirements.txt
+RUN pip install --upgrade pip && \
+    pip install tensorflow && \
+    pip install 'opensearch-py<2.0.0,>=1.0.0' && \
+    pip install requests && \
+    pip install requests-aws4auth && \
+    pip install numpy && \
+    pip install pandas
+
+# Define environment variable
+ENV NAME World
+
+# Set the CMD to your handler (replace "handler" with your actual handler)
+CMD ["train.handler"]

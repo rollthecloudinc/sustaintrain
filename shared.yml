@@ -1,0 +1,16 @@
+service: sustaintrain-shared
+
+provider:
+  name: aws
+  runtime: python3.8
+
+layers:
+  sharedLibs:
+    path: dist
+    package:
+      include:
+        - shared.zip
+    compatibleRuntimes:
+      - python3.8
+    allowedAccounts:
+      - ${aws:accountId}

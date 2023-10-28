@@ -1,0 +1,4 @@
+opensearch-py<2.0.0,>=1.0.0
+requests
+requests-aws4auth
+jmespath

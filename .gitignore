@@ -1,0 +1,6 @@
+dist/*
+dev.json
+prod.json
+.serverless/*
+node_modules/*
+**/.serverless

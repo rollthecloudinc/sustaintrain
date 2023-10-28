@@ -1,0 +1,18 @@
+service: sustaintrain-visit-prediction-user
+provider:
+  name: aws
+  stage: dev
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - events:PutEvents
+      Resource: "*"
+  ecr:
+    images:
+      sustaintrain-train-visit-prediction-user:
+        path: ../../../docker
+        file: TrainDocker
+functions:
+  train:
+    image:
+      name: sustaintrain-train-visit-prediction-user

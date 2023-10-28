@@ -1,0 +1,30 @@
+# Use an official Python runtime as a parent image
+FROM python:3.8
+
+# Set the working directory in the container to /var/task
+WORKDIR /var/task
+
+# Install system packages
+RUN apt-get update && \
+    apt-get install -y zip gcc g++
+
+# Create a directory for Python packages
+# RUN mkdir -p python/lib/python3.8/site-packages/
+# RUN mkdir -p shared-libs
+
+# Install any needed packages specified in requirements.txt
+COPY shared.txt .
+#COPY requirements-tensorflow.txt .
+#COPY requirements-numpy.txt .
+
+# Split up dependencies to satisfy lambda layer size limitations
+WORKDIR /var/task/shared-libs
+#WORKDIR /var/task/shared-libs-tensorflow
+#WORKDIR /var/task/shared-libs-numpy
+
+WORKDIR /var/task
+
+# RUN pip install -r requirements.txt -t shared-libs
+RUN pip install -r shared.txt -t shared-libs
+#RUN pip install -r requirements-tensorflow.txt -t shared-libs-tensorflow
+#RUN pip install -r requirements-numpy.txt -t shared-libs-numpy
